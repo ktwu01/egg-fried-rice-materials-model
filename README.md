@@ -6,6 +6,8 @@ Author: [ktwu01](https://github.com/ktwu01)
 
 Source: https://chat.openai.com/share/33bbea16-9508-4c8c-b300-198880b8d434
 
+📼 **[The original 2023 saved page](original-2023/蛋炒饭的材料学模型.html)** — the actual browser-saved snapshot from 2023-10-05, byte-for-byte, framework bundles and all. The transcript below is a clean re-typeset reading copy of the same conversation; the linked file is the untouched artifact.
+
 ## 🧑 User
 
 Think about a very tricky problem, like how to make egg fried rice so that the egg and rice grains are strictly stuck together (i.e., there are neither isolated rice grains nor isolated egg pieces).
