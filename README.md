@@ -2,6 +2,8 @@
 
 _A ChatGPT conversation, originally created 2023-10-05._
 
+Author: [ktwu01](https://github.com/ktwu01)
+
 Source: https://chat.openai.com/share/33bbea16-9508-4c8c-b300-198880b8d434
 
 ## 🧑 User

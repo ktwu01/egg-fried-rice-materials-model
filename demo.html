@@ -75,6 +75,7 @@
 
 <h1>🍳 Egg Fried Rice: A Percolation–Coagulation Model</h1>
 <p class="subtitle">Interactive companion to <a href="README.md">the theory</a> — a materials-science model of when egg and rice grains bond with no isolated pieces of either.</p>
+<p class="subtitle">Author: <a href="https://github.com/ktwu01">ktwu01</a></p>
 
 <div class="layout">
   <div class="panel">
@@ -89,8 +90,8 @@
         <input type="range" id="I" min="0.2" max="5" value="2.0" step="0.1">
       </div>
       <div class="control">
-        <label>Egg : rice mass ratio <span id="rval">0.40</span></label>
-        <input type="range" id="r" min="0.1" max="1.0" value="0.4" step="0.01">
+        <label>Egg : rice mass ratio <span id="rval">0.70</span></label>
+        <input type="range" id="r" min="0.1" max="1.0" value="0.7" step="0.01">
       </div>
       <div class="control">
         <label>Cooking time <span id="tval">30 s</span></label>
@@ -131,11 +132,11 @@
   </div>
 </div>
 
-<footer>Demo accompanies the <a href="README.md">materials-science model of 蛋炒饭</a>. Physical constants are illustrative, chosen to reproduce plausible qualitative behavior, not measured values.</footer>
+<footer>Demo accompanies the <a href="README.md">materials-science model of 蛋炒饭</a>. Physical constants are illustrative, chosen to reproduce plausible qualitative behavior, not measured values. © <a href="https://github.com/ktwu01">ktwu01</a>.</footer>
 
 <script>
 const EA_OVER_R = 4000, A_PRE = 1543, AVRAMI_N = 2;
-const BETA0 = 0.08, GAMMA0 = 0.02, RC = 0.35;
+const BETA0 = 0.2, GAMMA0 = 0.02, RC = 1.0;
 const THETA_C = 0.65, VAR_C = 0.035;
 
 function kOfT(Tc) { return A_PRE * Math.exp(-EA_OVER_R / (Tc + 273.15)); }
