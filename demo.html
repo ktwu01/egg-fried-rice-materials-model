@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Egg Fried Rice: A Percolation-Coagulation Model</title>
+<script>
+  window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['\\[','\\]']] } };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+<style>
+  :root {
+    --rice: #f2e9d8;
+    --egg: #f5b942;
+    --bg: #1c1712;
+    --panel: #262019;
+    --accent: #e8833a;
+    --good: #6ebf6e;
+    --bad: #e06060;
+    --warn: #e0b860;
+    --text: #ede4d3;
+    --muted: #a89d8a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 24px;
+  }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; }
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(340px, 520px) minmax(320px, 460px);
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 880px) { .layout { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel);
+    border: 1px solid #3a3226;
+    border-radius: 12px;
+    padding: 18px;
+  }
+  canvas { display: block; border-radius: 50%; background: #33281c; margin: 0 auto; }
+  #sweepCanvas { border-radius: 8px; background: #211b13; width: 100%; height: 140px; }
+  .controls { margin-top: 16px; display: grid; gap: 12px; }
+  .control label {
+    display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted);
+  }
+  .control input[type=range] { width: 100%; accent-color: var(--accent); }
+  .stat-row {
+    display: flex; justify-content: space-between; padding: 6px 0;
+    border-bottom: 1px solid #3a3226; font-size: 0.9rem;
+  }
+  .stat-row span.val { color: var(--accent); font-weight: 600; }
+  #status {
+    margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-weight: 600; font-size: 0.9rem;
+  }
+  .status-good { background: rgba(110,191,110,0.15); color: var(--good); }
+  .status-bad { background: rgba(224,96,96,0.15); color: var(--bad); }
+  .status-warn { background: rgba(224,184,96,0.15); color: var(--warn); }
+  .bar-track { background: #3a3226; border-radius: 5px; height: 8px; overflow: hidden; margin-top: 4px; }
+  .bar-fill { height: 100%; background: var(--accent); }
+  h3 { margin: 18px 0 8px; font-size: 1rem; color: var(--accent); }
+  .eq { font-size: 0.88rem; line-height: 1.6; color: var(--text); }
+  .eq .label { color: var(--muted); }
+  footer { margin-top: 24px; color: var(--muted); font-size: 0.8rem; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>🍳 Egg Fried Rice: A Percolation–Coagulation Model</h1>
+<p class="subtitle">Interactive companion to <a href="README.md">the theory</a> — a materials-science model of when egg and rice grains bond with no isolated pieces of either.</p>
+
+<div class="layout">
+  <div class="panel">
+    <canvas id="wok" width="480" height="480"></canvas>
+    <div class="controls">
+      <div class="control">
+        <label>Wok temperature <span id="Tval">180 °C</span></label>
+        <input type="range" id="T" min="120" max="220" value="180" step="1">
+      </div>
+      <div class="control">
+        <label>Stirring intensity <span id="Ival">2.0</span></label>
+        <input type="range" id="I" min="0.2" max="5" value="2.0" step="0.1">
+      </div>
+      <div class="control">
+        <label>Egg : rice mass ratio <span id="rval">0.40</span></label>
+        <input type="range" id="r" min="0.1" max="1.0" value="0.4" step="0.01">
+      </div>
+      <div class="control">
+        <label>Cooking time <span id="tval">30 s</span></label>
+        <input type="range" id="tCook" min="5" max="90" value="30" step="1">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="stat-row"><span>Mean coverage ⟨θ⟩</span><span class="val" id="meanTheta">–</span></div>
+    <div class="bar-track"><div class="bar-fill" id="meanBar" style="width:0%"></div></div>
+    <div class="stat-row"><span>Coverage variance</span><span class="val" id="varTheta">–</span></div>
+    <div class="stat-row"><span>Isolated rice grains (θ &lt; 0.3)</span><span class="val" id="bareFrac">–</span></div>
+    <div class="stat-row"><span>Stoichiometric ceiling θ<sub>max</sub>(r)</span><span class="val" id="thetaMaxDisp">–</span></div>
+    <div id="status" class="status-warn">Simulating…</div>
+
+    <h3>Optimal stirring intensity</h3>
+    <canvas id="sweepCanvas" width="440" height="140"></canvas>
+    <div class="stat-row"><span>Best I* for current T, r, cook time</span><span class="val" id="istar">–</span></div>
+
+    <h3>The four-part model</h3>
+    <div class="eq">
+      <p><span class="label">1. Egg coagulation (Avrami nucleation–growth, not first-order):</span><br>
+      \[ \phi(t) = 1 - \exp\!\big[-(k(T)\,t)^n\big], \qquad k(T) = A\,e^{-E_a/RT} \]</p>
+
+      <p><span class="label">2. Per-grain coverage: collision (builds θ) vs. shear fragmentation (tears θ):</span><br>
+      \[ \frac{d\theta}{dt} = \beta_0 I \big(\theta_{\max}-\theta\big)\phi(t) \;-\; \gamma_0 I^2 \theta \]
+      Collision rate grows linearly with stirring \(I\); shear-induced debonding grows quadratically — so unlike the original model's monotonic \(e^{-I/I_0}\), coverage is <em>non-monotonic</em> in \(I\): too little stirring never spreads the egg, too much shreds it back off. That trade-off is what the I* sweep on the left is finding numerically.</p>
+
+      <p><span class="label">3. Stoichiometric ceiling — kinetics can't beat a lack of egg:</span><br>
+      \[ \theta_{\max}(r) = \min\!\left(1,\ \frac{r}{r_c}\right) \]
+      where \(r\) is the egg:rice mass ratio and \(r_c\) the ratio needed to give every grain a full monolayer.</p>
+
+      <p><span class="label">4. Percolation criterion for "no isolated grains, no isolated egg":</span><br>
+      \[ \text{bonded} \iff \langle\theta\rangle \ge \theta_c \ \text{ and } \ \mathrm{Var}(\theta) \le \mathrm{Var}_c \]
+      A high mean with high variance just means some grains are bare and some are drowned in egg — both are failure modes the original model couldn't distinguish.</p>
+    </div>
+  </div>
+</div>
+
+<footer>Demo accompanies the <a href="README.md">materials-science model of 蛋炒饭</a>. Physical constants are illustrative, chosen to reproduce plausible qualitative behavior, not measured values.</footer>
+
+<script>
+const EA_OVER_R = 4000, A_PRE = 1543, AVRAMI_N = 2;
+const BETA0 = 0.08, GAMMA0 = 0.02, RC = 0.35;
+const THETA_C = 0.65, VAR_C = 0.035;
+
+function kOfT(Tc) { return A_PRE * Math.exp(-EA_OVER_R / (Tc + 273.15)); }
+function phiOfT(t, Tc) { const k = kOfT(Tc); return 1 - Math.exp(-Math.pow(k * t, AVRAMI_N)); }
+function thetaMaxOf(r) { return Math.min(1, r / RC); }
+
+function meanThetaAt(tCook, Tc, I, r) {
+  let theta = 0;
+  const dt = 0.05, tm = thetaMaxOf(r), b = BETA0 * I, g = GAMMA0 * I * I;
+  for (let t = 0; t < tCook; t += dt) {
+    const phi = phiOfT(t, Tc);
+    theta += (b * Math.max(tm - theta, 0) * phi - g * theta) * dt;
+    theta = Math.max(0, Math.min(1, theta));
+  }
+  return theta;
+}
+
+const Tin = document.getElementById('T'), Iin = document.getElementById('I'),
+      rin = document.getElementById('r'), tin = document.getElementById('tCook');
+const Tval = document.getElementById('Tval'), Ival = document.getElementById('Ival'),
+      rval = document.getElementById('rval'), tval = document.getElementById('tval');
+
+const N_GRAINS = 130;
+let grains = [];
+function initGrains() {
+  grains = [];
+  const rings = [0, 34, 68, 102, 136, 170, 204];
+  let id = 0;
+  for (const rad of rings) {
+    const circumference = 2 * Math.PI * rad;
+    const count = rad === 0 ? 1 : Math.max(6, Math.round(circumference / 22));
+    for (let i = 0; i < count && id < N_GRAINS; i++, id++) {
+      const angle = (i / count) * Math.PI * 2 + Math.random() * 0.15;
+      grains.push({
+        angle, rad,
+        phase: Math.random() * Math.PI * 2,
+        theta: 0
+      });
+    }
+  }
+}
+initGrains();
+
+const wok = document.getElementById('wok'), wctx = wok.getContext('2d');
+const sweepCanvas = document.getElementById('sweepCanvas'), sctx = sweepCanvas.getContext('2d');
+
+function lerpColor(a, b, t) {
+  return [0,1,2].map(i => Math.round(a[i] + (b[i]-a[i]) * t));
+}
+const RICE_RGB = [242, 233, 216], EGG_RGB = [245, 185, 66];
+
+let simTime = 0, lastFrame = null;
+
+function drawWok(Tc, I, r, tCook) {
+  const w = wok.width, h = wok.height, cx = w/2, cy = h/2;
+  wctx.clearRect(0, 0, w, h);
+  const tm = thetaMaxOf(r);
+  const b = BETA0 * I, g = GAMMA0 * I * I;
+  const phi = phiOfT(simTime, Tc);
+  const jitterAmp = 2 + 2.2 * I;
+
+  for (const grain of grains) {
+    const d = (b * Math.max(tm - grain.theta, 0) * phi - g * grain.theta) * lastDt
+              + (Math.random() - 0.5) * 0.06 * Math.sqrt(Math.max(lastDt, 0.0001));
+    grain.theta = Math.max(0, Math.min(1, grain.theta + d));
+
+    const wobble = Math.sin(simTime * (1.5 + I) + grain.phase) * jitterAmp;
+    const x = cx + Math.cos(grain.angle) * (grain.rad + wobble * 0.3);
+    const y = cy + Math.sin(grain.angle) * (grain.rad + wobble * 0.3);
+    const [cr, cg, cb] = lerpColor(RICE_RGB, EGG_RGB, grain.theta);
+    wctx.beginPath();
+    wctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+    wctx.arc(x, y, 9, 0, Math.PI * 2);
+    wctx.fill();
+    wctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    wctx.lineWidth = 1;
+    wctx.stroke();
+  }
+}
+
+function drawSweep(Tc, r, tCook, currentI) {
+  const w = sweepCanvas.width, h = sweepCanvas.height;
+  sctx.clearRect(0, 0, w, h);
+  const Is = [], vals = [];
+  let best = { I: 0.2, v: -1 };
+  for (let I = 0.2; I <= 5.001; I += 0.1) {
+    const v = meanThetaAt(tCook, Tc, I, r);
+    Is.push(I); vals.push(v);
+    if (v > best.v) best = { I, v };
+  }
+  const pad = 8;
+  sctx.strokeStyle = '#3a3226';
+  sctx.beginPath(); sctx.moveTo(pad, h-pad); sctx.lineTo(w-pad, h-pad); sctx.stroke();
+
+  sctx.strokeStyle = '#e8833a';
+  sctx.lineWidth = 2;
+  sctx.beginPath();
+  Is.forEach((I, idx) => {
+    const x = pad + (I - 0.2) / (5 - 0.2) * (w - 2*pad);
+    const y = (h - pad) - vals[idx] * (h - 2*pad);
+    if (idx === 0) sctx.moveTo(x, y); else sctx.lineTo(x, y);
+  });
+  sctx.stroke();
+
+  const starX = pad + (best.I - 0.2) / (5 - 0.2) * (w - 2*pad);
+  const starY = (h - pad) - best.v * (h - 2*pad);
+  sctx.fillStyle = '#f5b942';
+  sctx.beginPath(); sctx.arc(starX, starY, 5, 0, Math.PI*2); sctx.fill();
+
+  const curX = pad + (currentI - 0.2) / (5 - 0.2) * (w - 2*pad);
+  const curVal = meanThetaAt(tCook, Tc, currentI, r);
+  const curY = (h - pad) - curVal * (h - 2*pad);
+  sctx.fillStyle = '#e06060';
+  sctx.beginPath(); sctx.arc(curX, curY, 4, 0, Math.PI*2); sctx.fill();
+
+  document.getElementById('istar').textContent = `I* ≈ ${best.I.toFixed(1)}  (⟨θ⟩ = ${best.v.toFixed(2)})`;
+}
+
+function updateStats(r) {
+  const thetas = grains.map(g => g.theta);
+  const mean = thetas.reduce((a,b)=>a+b,0) / thetas.length;
+  const variance = thetas.reduce((a,b)=>a+(b-mean)*(b-mean),0) / thetas.length;
+  const bare = thetas.filter(t => t < 0.3).length / thetas.length;
+  const tm = thetaMaxOf(r);
+
+  document.getElementById('meanTheta').textContent = mean.toFixed(3);
+  document.getElementById('meanBar').style.width = `${mean*100}%`;
+  document.getElementById('varTheta').textContent = variance.toFixed(4);
+  document.getElementById('bareFrac').textContent = `${(bare*100).toFixed(1)}%`;
+  document.getElementById('thetaMaxDisp').textContent = tm.toFixed(2);
+
+  const statusEl = document.getElementById('status');
+  if (mean >= THETA_C && variance <= VAR_C) {
+    statusEl.className = 'status-good';
+    statusEl.textContent = '✅ Bonded: percolating egg network, no isolated rice grains.';
+  } else if (mean < THETA_C && tm < 1) {
+    statusEl.className = 'status-bad';
+    statusEl.textContent = '❌ Not enough egg: raise the egg:rice ratio — kinetics can\'t make up a stoichiometric deficit.';
+  } else if (variance > VAR_C) {
+    statusEl.className = 'status-warn';
+    statusEl.textContent = '⚠️ Uneven coating: some grains bare, some drowned — adjust stirring toward I*.';
+  } else {
+    statusEl.className = 'status-warn';
+    statusEl.textContent = '… still cooking, coverage building.';
+  }
+}
+
+let lastDt = 0.016;
+function frame(ts) {
+  if (lastFrame === null) lastFrame = ts;
+  const dtReal = (ts - lastFrame) / 1000;
+  lastFrame = ts;
+
+  const Tc = +Tin.value, I = +Iin.value, r = +rin.value, tCook = +tin.value;
+  const simSpeed = tCook / 7;
+  lastDt = dtReal * simSpeed;
+  simTime += lastDt;
+  if (simTime > tCook) { simTime = 0; initGrains(); }
+
+  drawWok(Tc, I, r, tCook);
+  updateStats(r);
+  requestAnimationFrame(frame);
+}
+
+let sweepDirty = true;
+function onSliderChange() {
+  Tval.textContent = `${Tin.value} °C`;
+  Ival.textContent = (+Iin.value).toFixed(1);
+  rval.textContent = (+rin.value).toFixed(2);
+  tval.textContent = `${tin.value} s`;
+  drawSweep(+Tin.value, +rin.value, +tin.value, +Iin.value);
+}
+[Tin, Iin, rin, tin].forEach(el => el.addEventListener('input', onSliderChange));
+onSliderChange();
+requestAnimationFrame(frame);
+</script>
+
+</body>
+</html>

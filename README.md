@@ -262,3 +262,33 @@ Combining the three processes above, we can construct a model describing the for
 \[ P_{\text{bind}} = P \times \frac{{d\phi}}{{dt}} \]
 
 This gives us a basic framework for understanding the formation process of egg fried rice. This model is of course a highly simplified version — the actual cooking process is far more complex, involving many additional physicochemical properties of the ingredients. This model can serve as a starting point, to be optimized and developed through further research and experimentation.
+
+## Extended model: percolation–coagulation with competing stirring effects
+
+The original conversation left three gaps: the coagulation kinetics were a bare first-order guess, the stirring term `P = P₀e^(−I/I₀)` implies *more* stirring always means *less* egg–rice contact (no mechanism given, and it conflicts with kitchen experience), and there was no criterion for actually deciding when "no isolated rice grains, no isolated egg" has been achieved.
+
+**1. Coagulation as nucleation-and-growth (Avrami), not first-order decay.** Protein coagulation, like crystallization, nucleates and grows rather than relaxing exponentially from t=0:
+
+\[ \phi(t) = 1 - \exp\!\big[-(k(T)\,t)^n\big], \qquad k(T) = A\,e^{-E_a/RT} \]
+
+**2. Stirring has two competing effects, which is what actually produces an optimum.** Collision frequency between rice and egg grows with stirring intensity \(I\); so does the shear that tears already-bonded film back off. Per-grain surface coverage \(\theta\) obeys:
+
+\[ \frac{d\theta}{dt} = \beta_0 I(\theta_{\max}-\theta)\phi(t) - \gamma_0 I^2\theta \]
+
+Because fragmentation scales as \(I^2\) against collision's \(I^1\), there is a genuine optimal stirring intensity \(I^*\) for a given cook time — too little stirring never spreads the egg, too much shreds it back off. This replaces the original model's unexplained monotonic decay with a mechanism, and matches the real failure modes of over- and under-stirred fried rice.
+
+**3. A stoichiometric ceiling — kinetics cannot substitute for enough egg.** Coverage is capped by how much egg mass is actually available per unit rice surface:
+
+\[ \theta_{\max}(r) = \min\!\left(1, \frac{r}{r_c}\right) \]
+
+where \(r\) is the egg:rice mass ratio and \(r_c\) is the ratio required to give every grain a full monolayer.
+
+**4. A percolation criterion for "bonded."** The literal requirement — no isolated rice grains, no isolated egg — is a statement about the *distribution* of \(\theta\) across grains, not just its mean:
+
+\[ \text{bonded} \iff \langle\theta\rangle \ge \theta_c \ \text{ and } \ \mathrm{Var}(\theta) \le \mathrm{Var}_c \]
+
+A high mean with high variance just means some grains are bare and others are drowned in egg — a failure mode the original model had no way to express.
+
+### Interactive demo
+
+[**demo.html**](demo.html) simulates a population of rice grains under this model, animates their coverage in a wok, and numerically sweeps stirring intensity to find \(I^*\) live as you adjust temperature, stirring, egg:rice ratio, and cook time. Open it directly in a browser (needs network access once, to load MathJax for the equations).
