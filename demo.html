@@ -28,8 +28,12 @@
     color: var(--text);
     font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     padding: 24px;
+    display: flex;
+    justify-content: center;
   }
-  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .page { width: 100%; max-width: 1000px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; text-align: center; }
+  .subtitle { text-align: center; }
   .subtitle { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; }
   .layout {
     display: grid;
@@ -72,6 +76,7 @@
 </style>
 </head>
 <body>
+<div class="page">
 
 <h1>🍳 Egg Fried Rice: A Percolation–Coagulation Model</h1>
 <p class="subtitle">Interactive companion to <a href="README.md">the theory</a> — a materials-science model of when egg and rice grains bond with no isolated pieces of either.</p>
@@ -133,6 +138,8 @@
 </div>
 
 <footer>Demo accompanies the <a href="README.md">materials-science model of 蛋炒饭</a>, itself transcribed from <a href="original-2023/蛋炒饭的材料学模型.html">the original 2023 saved conversation</a>. Physical constants are illustrative, chosen to reproduce plausible qualitative behavior, not measured values. © <a href="https://github.com/ktwu01">ktwu01</a>.</footer>
+
+</div>
 
 <script>
 const EA_OVER_R = 4000, A_PRE = 1543, AVRAMI_N = 2;
