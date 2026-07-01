@@ -8,6 +8,7 @@
   window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['\\[','\\]']] } };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+<script src="model.js"></script>
 <style>
   :root {
     --rice: #f2e9d8;
@@ -131,8 +132,8 @@
       where \(r\) is the egg:rice mass ratio and \(r_c\) the ratio needed to give every grain a full monolayer.</p>
 
       <p><span class="label">4. Percolation criterion for "no isolated grains, no isolated egg":</span><br>
-      \[ \text{bonded} \iff \langle\theta\rangle \ge \theta_c \ \text{ and } \ \mathrm{Var}(\theta) \le \mathrm{Var}_c \]
-      A high mean with high variance just means some grains are bare and some are drowned in egg — both are failure modes the original model couldn't distinguish.</p>
+      \[ \text{bonded} \iff \langle\theta\rangle \ge \theta_c \ \text{ and } \ \mathrm{Var}(\theta) \le \mathrm{Var}_c \ \text{ and } \ f_{\mathrm{bare}} \le f_c \]
+      A high mean with high variance just means some grains are bare and some are drowned in egg. The bare-fraction bound \(f_{\mathrm{bare}} \le f_c\) is what actually enforces "no isolated rice grains" — and the I* sweep above optimizes the score \(\langle\theta\rangle - \lambda\,\mathrm{Var}(\theta) - \mu\,f_{\mathrm{bare}}\), not mean coverage alone.</p>
     </div>
   </div>
 </div>
@@ -142,24 +143,11 @@
 </div>
 
 <script>
-const EA_OVER_R = 4000, A_PRE = 1543, AVRAMI_N = 2;
-const BETA0 = 0.2, GAMMA0 = 0.02, RC = 1.0;
-const THETA_C = 0.65, VAR_C = 0.035;
-
-function kOfT(Tc) { return A_PRE * Math.exp(-EA_OVER_R / (Tc + 273.15)); }
-function phiOfT(t, Tc) { const k = kOfT(Tc); return 1 - Math.exp(-Math.pow(k * t, AVRAMI_N)); }
-function thetaMaxOf(r) { return Math.min(1, r / RC); }
-
-function meanThetaAt(tCook, Tc, I, r) {
-  let theta = 0;
-  const dt = 0.05, tm = thetaMaxOf(r), b = BETA0 * I, g = GAMMA0 * I * I;
-  for (let t = 0; t < tCook; t += dt) {
-    const phi = phiOfT(t, Tc);
-    theta += (b * Math.max(tm - theta, 0) * phi - g * theta) * dt;
-    theta = Math.max(0, Math.min(1, theta));
-  }
-  return theta;
-}
+// Model constants and functions live in model.js (shared with the tests).
+const {
+  BETA0, GAMMA0, THETA_C, VAR_C, BARE_C,
+  phiOfT, thetaMaxOf, exposureAt, statsOf, isBonded, sweepIstar
+} = RiceModel;
 
 const Tin = document.getElementById('T'), Iin = document.getElementById('I'),
       rin = document.getElementById('r'), tin = document.getElementById('tCook');
@@ -180,6 +168,7 @@ function initGrains() {
       grains.push({
         angle, rad,
         phase: Math.random() * Math.PI * 2,
+        exposure: exposureAt(id, N_GRAINS),
         theta: 0
       });
     }
@@ -201,13 +190,13 @@ function drawWok(Tc, I, r, tCook) {
   const w = wok.width, h = wok.height, cx = w/2, cy = h/2;
   wctx.clearRect(0, 0, w, h);
   const tm = thetaMaxOf(r);
-  const b = BETA0 * I, g = GAMMA0 * I * I;
+  const g = GAMMA0 * I * I;
   const phi = phiOfT(simTime, Tc);
   const jitterAmp = 2 + 2.2 * I;
 
   for (const grain of grains) {
-    const d = (b * Math.max(tm - grain.theta, 0) * phi - g * grain.theta) * lastDt
-              + (Math.random() - 0.5) * 0.06 * Math.sqrt(Math.max(lastDt, 0.0001));
+    const b = BETA0 * I * grain.exposure;
+    const d = (b * Math.max(tm - grain.theta, 0) * phi - g * grain.theta) * lastDt;
     grain.theta = Math.max(0, Math.min(1, grain.theta + d));
 
     const wobble = Math.sin(simTime * (1.5 + I) + grain.phase) * jitterAmp;
@@ -227,46 +216,43 @@ function drawWok(Tc, I, r, tCook) {
 function drawSweep(Tc, r, tCook, currentI) {
   const w = sweepCanvas.width, h = sweepCanvas.height;
   sctx.clearRect(0, 0, w, h);
-  const Is = [], vals = [];
-  let best = { I: 0.2, v: -1 };
-  for (let I = 0.2; I <= 5.001; I += 0.1) {
-    const v = meanThetaAt(tCook, Tc, I, r);
-    Is.push(I); vals.push(v);
-    if (v > best.v) best = { I, v };
-  }
+  const { best, curve, iMin, iMax } = sweepIstar(tCook, Tc, r);
   const pad = 8;
+  const xOf = I => pad + (I - iMin) / (iMax - iMin) * (w - 2*pad);
+
   sctx.strokeStyle = '#3a3226';
   sctx.beginPath(); sctx.moveTo(pad, h-pad); sctx.lineTo(w-pad, h-pad); sctx.stroke();
 
+  // Line = mean coverage vs stirring; the star (score-optimal I*) can sit off
+  // the raw coverage peak precisely because it also penalizes variance/bare.
   sctx.strokeStyle = '#e8833a';
   sctx.lineWidth = 2;
   sctx.beginPath();
-  Is.forEach((I, idx) => {
-    const x = pad + (I - 0.2) / (5 - 0.2) * (w - 2*pad);
-    const y = (h - pad) - vals[idx] * (h - 2*pad);
+  curve.forEach((pt, idx) => {
+    const x = xOf(pt.I);
+    const y = (h - pad) - pt.stats.mean * (h - 2*pad);
     if (idx === 0) sctx.moveTo(x, y); else sctx.lineTo(x, y);
   });
   sctx.stroke();
 
-  const starX = pad + (best.I - 0.2) / (5 - 0.2) * (w - 2*pad);
-  const starY = (h - pad) - best.v * (h - 2*pad);
+  const starX = xOf(best.I);
+  const starY = (h - pad) - best.stats.mean * (h - 2*pad);
   sctx.fillStyle = '#f5b942';
   sctx.beginPath(); sctx.arc(starX, starY, 5, 0, Math.PI*2); sctx.fill();
 
-  const curX = pad + (currentI - 0.2) / (5 - 0.2) * (w - 2*pad);
-  const curVal = meanThetaAt(tCook, Tc, currentI, r);
-  const curY = (h - pad) - curVal * (h - 2*pad);
+  const curStats = curve.reduce((a, b) =>
+    Math.abs(b.I - currentI) < Math.abs(a.I - currentI) ? b : a).stats;
+  const curX = xOf(currentI);
+  const curY = (h - pad) - curStats.mean * (h - 2*pad);
   sctx.fillStyle = '#e06060';
   sctx.beginPath(); sctx.arc(curX, curY, 4, 0, Math.PI*2); sctx.fill();
 
-  document.getElementById('istar').textContent = `I* ≈ ${best.I.toFixed(1)}  (⟨θ⟩ = ${best.v.toFixed(2)})`;
+  document.getElementById('istar').textContent =
+    `I* ≈ ${best.I.toFixed(1)}  (⟨θ⟩ ${best.stats.mean.toFixed(2)}, Var ${best.stats.variance.toFixed(3)}, bare ${(best.stats.bare*100).toFixed(0)}%)`;
 }
 
 function updateStats(r) {
-  const thetas = grains.map(g => g.theta);
-  const mean = thetas.reduce((a,b)=>a+b,0) / thetas.length;
-  const variance = thetas.reduce((a,b)=>a+(b-mean)*(b-mean),0) / thetas.length;
-  const bare = thetas.filter(t => t < 0.3).length / thetas.length;
+  const { mean, variance, bare } = statsOf(grains.map(g => g.theta));
   const tm = thetaMaxOf(r);
 
   document.getElementById('meanTheta').textContent = mean.toFixed(3);
@@ -276,13 +262,13 @@ function updateStats(r) {
   document.getElementById('thetaMaxDisp').textContent = tm.toFixed(2);
 
   const statusEl = document.getElementById('status');
-  if (mean >= THETA_C && variance <= VAR_C) {
+  if (isBonded({ mean, variance, bare })) {
     statusEl.className = 'status-good';
     statusEl.textContent = '✅ Bonded: percolating egg network, no isolated rice grains.';
   } else if (mean < THETA_C && tm < 1) {
     statusEl.className = 'status-bad';
     statusEl.textContent = '❌ Not enough egg: raise the egg:rice ratio — kinetics can\'t make up a stoichiometric deficit.';
-  } else if (variance > VAR_C) {
+  } else if (variance > VAR_C || bare > BARE_C) {
     statusEl.className = 'status-warn';
     statusEl.textContent = '⚠️ Uneven coating: some grains bare, some drowned — adjust stirring toward I*.';
   } else {

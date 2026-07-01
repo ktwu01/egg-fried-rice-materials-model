@@ -32,11 +32,13 @@ Because fragmentation scales as \(I^2\) against collision's \(I^1\), there is a 
 
 where \(r\) is the egg:rice mass ratio and \(r_c\) is the ratio required to give every grain a full monolayer.
 
-**4. A percolation criterion for "bonded."** The literal requirement — no isolated rice grains, no isolated egg — is a statement about the *distribution* of \(\theta\) across grains, not just its mean:
+**4. A percolation criterion for "bonded."** The literal requirement — no isolated rice grains, no isolated egg — is a statement about the *distribution* of \(\theta\) across grains, not just its mean. Three conditions have to hold together: enough coverage on average, low spread, and an explicit bound on the fraction of grains left bare:
 
-\[ \text{bonded} \iff \langle\theta\rangle \ge \theta_c \ \text{ and } \ \mathrm{Var}(\theta) \le \mathrm{Var}_c \]
+\[ \text{bonded} \iff \langle\theta\rangle \ge \theta_c \ \text{ and } \ \mathrm{Var}(\theta) \le \mathrm{Var}_c \ \text{ and } \ f_{\mathrm{bare}} \le f_c \]
 
-A high mean with high variance just means some grains are bare and others are drowned in egg — a failure mode the original model had no way to express.
+where \(f_{\mathrm{bare}}\) is the fraction of grains below a coverage threshold \(\theta_{\mathrm{bare}}\). A high mean with low variance can still hide a tail of uncoated grains, so the bare-fraction bound is the term that actually enforces "no isolated rice grains." Because grains differ in how exposed they are to egg–grain collisions, coverage is a genuine distribution rather than one number — that spread is what the variance and bare-fraction terms measure.
+
+Choosing the stirring intensity then means optimizing the whole distribution, not the mean alone. The demo's I* sweep maximizes a score \( \langle\theta\rangle - \lambda\,\mathrm{Var}(\theta) - \mu\,f_{\mathrm{bare}} \), so the optimum trades a little mean coverage away when doing so buys a more even coat.
 
 ## Interactive demo
 
